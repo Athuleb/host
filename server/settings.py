@@ -42,7 +42,9 @@ INSTALLED_APPS = [
     'journey',
     'rest_framework',
     'corsheaders',
-    'sendemail'
+    'sendemail',
+    'authentication',
+    'rest_framework.authtoken',
 ]
 
 MIDDLEWARE = [
@@ -129,7 +131,9 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOW_ALL_ORIGINS = True
-
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173", 
+]
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
@@ -137,3 +141,18 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER= 'athultestmail0@gmail.com'
 EMAIL_HOST_PASSWORD ='zeft tfeo rjeb sjrh'
 PEXELS_API_KEY = 'JrNlg8xxlKnhIYBAqGlNDXWR2y8fX87esJlLwgbF8oflFgbV7DbtlJPx'
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication'
+
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny',
+    ],
+}
+
+
+AUTH_USER_MODEL = 'authentication.UserModel'

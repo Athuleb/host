@@ -22,6 +22,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('',include('journey.urls')),
     path('email/',include('sendemail.urls')),
-    path('distance/',include('distance.urls'))
-    
+    path('distance/',include('distance.urls')),
+    path('auth/',include('authentication.urls'))
 ]

@@ -12,6 +12,7 @@ import json
 from django.conf import settings
 
 
+
 class DestinationListView(viewsets.ModelViewSet):
     queryset = DestinationImages.objects.all()
     serializer_class = DestModel
