@@ -1,0 +1,3 @@
+{
+ "python.defaultInterpreterPath": "./host/bin/python"
+}
