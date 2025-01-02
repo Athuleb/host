@@ -114,7 +114,6 @@ def user_login(request):
     except json.JSONDecodeError:
             return global_response(None, message="Invalid JSON format", responseStatus="fail", status_code=400)
 
-    # return global_response(None, message="Only POST requests are allowed", responseStatus="fail", status_code=405)
 
 
 
@@ -136,8 +135,8 @@ class ForgotPassword(View):
             data = json.loads(request.body)
             email = data.get('email')
             username = data.get('username')
-            user = UserModel.objects.filter(Q(email=email) | Q(username=username))
-            if not user.exists():
+            user = UserModel.objects.filter(email=email, username=username).first()
+            if not user:
                 print('invalid user/exists')
                 return JsonResponse({"message": "invalid user", "responseStatus": "fail"}, status=401)
             else:
@@ -148,7 +147,11 @@ class ForgotPassword(View):
                 print(f"Generated OTP: {otp}, model {model_otp}")
                 
                 try:
-                    # send_mail(subject, message, from_email, recipient_list)
+                    subject = "User Verification"
+                    message = f"Your OTP for updating your password is {otp}. Please use this OTP to proceed with the update."
+                    from_email = 'athultestmail0@gmail.com'
+                    recipient_list =[email]
+                    send_mail(subject, message, from_email, recipient_list)
                     print(f"OTP sent to {email}")
                     return JsonResponse({"data": otp, "message": f"OTP sent to {email}", "responseStatus": "success"}, status=200)
                 except Exception as e:
@@ -162,7 +165,7 @@ class ForgotPassword(View):
                 received_otp = data.get('otp')
                 email = data.get('email')
                 print("email", email)
-                stored_otp_obj = OTP.objects.filter(email=email).latest('created_at')
+                stored_otp_obj = OTP.objects.filter(email=email).latest('created_at') if OTP.objects.filter(email=email).exists() else None
 
                 print(f"Received OTP: {received_otp}, Original OTP: {stored_otp_obj.otp}, from {email}")
 
