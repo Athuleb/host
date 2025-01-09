@@ -1,21 +1,27 @@
+# from .models import DestinationImages,Gallery
+# from .serializer import DestModel,GallerySerializer
 from rest_framework import status
 from rest_framework import viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
 import requests
-from .models import DestinationImages,Gallery
-from .serializer import DestModel,GallerySerializer
 from rest_framework import status
 from django.core.mail import send_mail
 from django.http import JsonResponse
 import json
 from django.conf import settings
+from journey.utils import fetch_destination_details
 
 
 
-class DestinationListView(viewsets.ModelViewSet):
-    queryset = DestinationImages.objects.all()
-    serializer_class = DestModel
+class DestinationListView(APIView):
+    def get(self,request):
+        try:
+            destinations = fetch_destination_details()
+           # print("destinations>>??",destinations)
+            return Response({"data":destinations,"message":"Details of 10 locations","responseStatus":"success"},status=200)
+        except Exception as e:
+            return Response({"data":None,"message":"failed to search","responseStatus":"fail"},status=500)
 
 class GalleryView(APIView):
     def get(self, request):

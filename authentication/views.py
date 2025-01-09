@@ -18,7 +18,9 @@ from django.core.mail import send_mail
 from django.conf import settings 
 from django.views import View
 from django.utils.decorators import method_decorator
-
+from rest_framework.authtoken.models import Token
+from rest_framework.authentication import TokenAuthentication
+from rest_framework.decorators import authentication_classes, permission_classes
 from django.http import HttpResponse
 
 
@@ -28,59 +30,71 @@ class RegisterUserView(APIView):
         if serializer.is_valid():            
             userdata = serializer.validated_data
             print("userdata>>",userdata)
-        
+            
            
             email = userdata.get("email")
-            password = userdata.get("password")
+            #password = userdata.get("password")
             user_type = userdata.get("user_type")
-            cache.set( "user_credentials" ,{'Email':email,"password":password,'user_type':user_type},timeout=2592000)
-            print("cache set",cache)
+
+            # session_token = str(uuid.uuid4())
+            # cache.set(session_token ,{'Email':email,'user_type':user_type},timeout=2592000)
+            # print(f"Session token generated and cached: {session_token}")
 
             if UserModel.objects.filter(Q(email=userdata.get('email')) | Q(username=userdata.get('username'))).exists():
-                print("User with this username or email is already registered!!!!")
                 return JsonResponse({'data': None,'message': "Invalid username or email .",'responseStatus': "fail"}, status=409)             
             user = UserModel(**userdata)
             user.set_password(userdata.get("password"))
             user.save()
+            token, created = Token.objects.get_or_create(user=user)
 
             login(request, user)
-            return JsonResponse({'data':user.username,'message' : "User registered successfully!" ,'responseStatus':"success"},status=200)
+            response = JsonResponse({'data':{"username":user.username,'token': token.key},'message' : "User registered successfully!" ,'responseStatus':"success"},status=200)
+            return response
+            #return JsonResponse({'data':user.username,'message' : "User registered successfully!" ,'responseStatus':"success"},status=200)
         
         print("Serializer Errors>>:", serializer.errors)  
 
-        return JsonResponse({"data": serializer.errors, "message": "Invalid user data. Please check the form. ", "responseStatus": "fail", "status":400})
+        return JsonResponse({"data": serializer.errors, "message": "Invalid user data. Please check the form. ", "responseStatus": "fail",},status=400)
 
 
 @csrf_exempt
 @api_view(['POST'])
-def cache_login(request):
+@authentication_classes([TokenAuthentication])
+@permission_classes([])
+def token_login(request):
+    
     if request.method == "POST":
-        cached_data = cache.get("user_credentials")
-        if cached_data:
-            email = cached_data.get("Email")
-            password = cached_data.get("password")
-            login_user_type = cached_data.get('user_type')
-            print(f"Email: {email}, Password: {password} user type:{login_user_type}")
-
+        token_key = request.headers.get("Authorization")
+        if token_key:
+            
             try:
-                user = UserModel.objects.get(email=email)
-                print(f"cache  User found: {user}")
-            except UserModel.DoesNotExist:
-                return global_response(None, message="Invalid email or password", responseStatus="fail", status_code=404)
-            if check_password(password, user.password):
-                print(f"Password match for cache : {user.email},password:{password}")
-                if login_user_type == user.user_type:
-                    
-                    return global_response(user.username, message="Login successful", responseStatus="success", status_code=200)
-                else:
-                    
-                    return global_response(None, message="Invalid user type (business/personal)", responseStatus="fail", status_code=400)
-            else:
-                print(f"Password mismatch for user: {user.email}")
-                return global_response(None, message="Invalid email or password", responseStatus="fail", status_code=401)
+                token = Token.objects.get(key=token_key)
+                user= token.user
+                username = user.username
+                
+                return JsonResponse({"data":username,"message":"token response","responseStatus":"success"},status=200)
+            except Token.DoesNotExist:
+                    print(f"Token '{token_key}' does not exist in the database.")
+                    return global_response(None, message="Invalid email or password", responseStatus="fail", status_code=404)
         else:
-            print("No data found in cache.")
-            return global_response(None,message="No cached data found",responseStatus="fail",status_code=404 )
+            return global_response(None, message="Session token not provided", responseStatus="fail", status_code=400)
+
+        
+            
+        #     if check_password(password, user.password):
+        #         print(f"Password match for cache : {user.email},password:{password}")
+        #         if login_user_type == user.user_type:
+                    
+        #             return global_response(user.username, message="Login successful", responseStatus="success", status_code=200)
+        #         else:
+                    
+        #             return global_response(None, message="Invalid user type (business/personal)", responseStatus="fail", status_code=400)
+        #     else:
+        #         print(f"Password mismatch for user: {user.email}")
+        #         return global_response(None, message="Invalid email or password", responseStatus="fail", status_code=401)
+        # else:
+        #     print("No data found in cache.")
+        #     return global_response(None,message="No cached data found",responseStatus="fail",status_code=404 )
 
 
 
@@ -135,16 +149,18 @@ class ForgotPassword(View):
             data = json.loads(request.body)
             email = data.get('email')
             username = data.get('username')
-            user = UserModel.objects.filter(email=email, username=username).first()
+            user_type = data.get('user_type')
+           
+            user = UserModel.objects.filter(email=email, username=username,user_type=user_type).first()
             if not user:
-                print('invalid user/exists')
+                
                 return JsonResponse({"message": "invalid user", "responseStatus": "fail"}, status=401)
             else:
                 otp = generate_otp()
                 OTP.objects.filter(email=email).delete()
                 OTP.objects.create(email=email, otp=otp)
                 model_otp = OTP.objects.all()
-                print(f"Generated OTP: {otp}, model {model_otp}")
+                
                 
                 try:
                     subject = "User Verification"
@@ -164,15 +180,15 @@ class ForgotPassword(View):
                 data = json.loads(request.body)
                 received_otp = data.get('otp')
                 email = data.get('email')
-                print("email", email)
+               
                 stored_otp_obj = OTP.objects.filter(email=email).latest('created_at') if OTP.objects.filter(email=email).exists() else None
 
-                print(f"Received OTP: {received_otp}, Original OTP: {stored_otp_obj.otp}, from {email}")
+                
 
                 if not stored_otp_obj:
                     return JsonResponse({"message": "OTP expired or not found", "responseStatus": "fail"}, status=400)
                 stored_otp = stored_otp_obj.otp
-                print("stored_otp>>>", stored_otp, email)
+                
                 if received_otp == stored_otp:
                     print("verified")
                     return JsonResponse({"data": email, "message": "OTP verified successfully", "responseStatus": "success"}, status=200)
@@ -189,7 +205,7 @@ class ForgotPassword(View):
                 data = json.loads(request.body.decode('utf-8'))
                 password = data.get('password')
                 email = data.get('email')
-                print("password:", password, "email:", email)
+               
                 try:
                     user = UserModel.objects.get(email=email)
                     print("user found:", user.username,user.email)
